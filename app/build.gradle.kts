@@ -1,16 +1,7 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
-}
-
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localProperties.load(FileInputStream(localPropertiesFile))
 }
 
 android {
@@ -23,11 +14,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
-        val token = localProperties.getProperty("github_token", "")
-        val username = localProperties.getProperty("github_username", "")
-        buildConfigField("String", "GITHUB_TOKEN", "\"$token\"")
-        buildConfigField("String", "GITHUB_USERNAME", "\"$username\"")
     }
 
     buildTypes {
