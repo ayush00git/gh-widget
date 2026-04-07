@@ -1,4 +1,4 @@
-# GitHub Contributions Widget (gh-widget)
+# gh-widget
 
 **gh-widget** is a custom Android home screen widget designed to bring your GitHub contribution graph directly to your mobile device but the cool way.
 More tweaks comming soon!!
