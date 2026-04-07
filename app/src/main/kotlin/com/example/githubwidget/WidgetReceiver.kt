@@ -16,5 +16,6 @@ class WidgetReceiver : GlanceAppWidgetReceiver() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         // Ensure background fetch is scheduled when widget is updated/added
         WidgetWorker.schedule(context)
+        WidgetWorker.fetchNow(context)
     }
 }

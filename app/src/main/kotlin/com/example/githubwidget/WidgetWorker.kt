@@ -84,13 +84,24 @@ class WidgetWorker(appContext: Context, workerParams: WorkerParameters) :
 
         return try {
             val response: GithubResponse = client.post("https://api.github.com/graphql") {
-                header("Authorization", "bearer ${"$"}{token}")
+                header("Authorization", "bearer $token")
                 contentType(ContentType.Application.Json)
                 setBody(GraphQLRequest(query))
             }.body()
 
             val weeks = response.data?.user?.contributionsCollection?.contributionCalendar?.weeks ?: emptyList()
-            val counts = weeks.flatMap { it.contributionDays }.map { it.contributionCount }
+            val counts = weeks.flatMapIndexed { index, week ->
+                val days = week.contributionDays.map { it.contributionCount }
+                if (days.size < 7) {
+                    if (index == 0) {
+                        List(7 - days.size) { 0 } + days
+                    } else {
+                        days + List(7 - days.size) { 0 }
+                    }
+                } else {
+                    days
+                }
+            }
 
             val sharedPrefs = applicationContext.getSharedPreferences("github_widget_prefs", Context.MODE_PRIVATE)
             sharedPrefs.edit().putString("contributions", Json.encodeToString(counts)).apply()
@@ -115,6 +126,15 @@ class WidgetWorker(appContext: Context, workerParams: WorkerParameters) :
                 "GithubWidgetUpdate",
                 ExistingPeriodicWorkPolicy.KEEP,
                 workRequest
+            )
+        }
+
+        fun fetchNow(context: Context) {
+            val oneTimeRequest = androidx.work.OneTimeWorkRequestBuilder<WidgetWorker>().build()
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                "GithubWidgetUpdateNow",
+                androidx.work.ExistingWorkPolicy.REPLACE,
+                oneTimeRequest
             )
         }
     }

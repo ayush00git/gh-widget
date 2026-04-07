@@ -1,24 +1,24 @@
 package com.example.githubwidget
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
-import androidx.glance.appwidget.cornerRadius
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
-import androidx.glance.layout.Column
-import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.layout.size
-import androidx.glance.layout.width
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 
@@ -33,51 +33,65 @@ class GithubWidget : GlanceAppWidget() {
             emptyList()
         }
 
+        // Draw graph manually out of Glance's layout engine to avoid RemoteViews's strict rendering limits
+        val weeksCount = 53
+        val daysInWeek = 7
+        
+        val dotRadius = 7f
+        val dotSize = dotRadius * 2
+        val gap = 4f
+        val w = (weeksCount * (dotSize + gap) - gap).toInt()
+        val h = (daysInWeek * (dotSize + gap) - gap).toInt()
+        
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paintLevel0 = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.TRANSPARENT } 
+        val paintLevel1 = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(102, 255, 255, 255) } // ~40%
+        val paintLevel2 = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(153, 255, 255, 255) } // ~60%
+        val paintLevel3 = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(204, 255, 255, 255) } // ~80%
+        val paintLevel4 = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+
+        val paddedContributions = contributions.toMutableList()
+        val totalRequired = weeksCount * daysInWeek
+        if (paddedContributions.size < totalRequired) {
+            val missing = totalRequired - paddedContributions.size
+            paddedContributions.addAll(0, List(missing) { 0 })
+        }
+        val finalData = paddedContributions.takeLast(totalRequired)
+
+        for (weekIndex in 0 until weeksCount) {
+            for (dayIndex in 0 until daysInWeek) {
+                val dataIndex = weekIndex * daysInWeek + dayIndex
+                val count = finalData.getOrNull(dataIndex) ?: 0
+                val px = weekIndex * (dotSize + gap)
+                val py = dayIndex * (dotSize + gap)
+                val paint = when {
+                    count == 0 -> paintLevel0
+                    count in 1..2 -> paintLevel1
+                    count in 3..5 -> paintLevel2
+                    count in 6..9 -> paintLevel3
+                    else -> paintLevel4
+                }
+                canvas.drawRoundRect(
+                    RectF(px, py, px + dotSize, py + dotSize),
+                    dotRadius, dotRadius, paint
+                )
+            }
+        }
+
         provideContent {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(Color(0xFF1A1A2E))
+                    .background(Color.Black)
                     .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // The widget needs 53 weeks x 7 days
-                Row {
-                    val weeksCount = 53
-                    val daysInWeek = 7
-                    // if contributions is empty or less we pad with 0
-                    val paddedContributions = contributions.toMutableList()
-                    val totalRequired = weeksCount * daysInWeek
-                    if (paddedContributions.size < totalRequired) {
-                        val missing = totalRequired - paddedContributions.size
-                        paddedContributions.addAll(0, List(missing) { 0 })
-                    }
-                    // take last totalRequired
-                    val finalData = paddedContributions.takeLast(totalRequired)
-
-                    for (weekIndex in 0 until weeksCount) {
-                        Column {
-                            for (dayIndex in 0 until daysInWeek) {
-                                val dataIndex = weekIndex * daysInWeek + dayIndex
-                                val count = finalData.getOrNull(dataIndex) ?: 0
-                                Box(
-                                    modifier = GlanceModifier
-                                        .size(8.dp)
-                                        .background(
-                                            if (count > 0) Color.White else Color(0x33FFFFFF)
-                                        )
-                                        .cornerRadius(4.dp)
-                                ) {}
-                                if (dayIndex < daysInWeek - 1) {
-                                    Spacer(GlanceModifier.height(2.dp))
-                                }
-                            }
-                        }
-                        if (weekIndex < weeksCount - 1) {
-                            Spacer(GlanceModifier.width(2.dp))
-                        }
-                    }
-                }
+                Image(
+                    provider = ImageProvider(bitmap),
+                    contentDescription = "GitHub Contributions",
+                    contentScale = ContentScale.Fit
+                )
             }
         }
     }
