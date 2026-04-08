@@ -2,6 +2,7 @@ package com.example.githubwidget
 
 import android.app.Activity
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -12,6 +13,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 
 class SettingsActivity : Activity() {
+    companion object {
+        private const val TAG = "SettingsActivity"
+    }
     private lateinit var usernameInput: EditText
     private lateinit var saveButton: Button
     private lateinit var preferencesManager: PreferencesManager
@@ -30,6 +34,8 @@ class SettingsActivity : Activity() {
 
         saveButton.setOnClickListener {
             val username = usernameInput.text.toString().trim()
+            Log.d(TAG, "Save button clicked with username: $username")
+            
             if (username.isBlank()) {
                 Toast.makeText(this, "Please enter a GitHub username", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -37,6 +43,7 @@ class SettingsActivity : Activity() {
 
             // Save username
             preferencesManager.setUsername(username)
+            Log.d(TAG, "Username saved to preferences")
             
             // Show loading toast
             Toast.makeText(this, "Fetching contributions...", Toast.LENGTH_SHORT).show()
@@ -45,23 +52,39 @@ class SettingsActivity : Activity() {
             saveButton.isEnabled = false
 
             // Fetch data immediately in background
+            Log.d(TAG, "Starting coroutine to fetch contributions")
             CoroutineScope(Dispatchers.IO).launch {
-                val data = GitHubFetcher.fetchContributions(username)
-                if (data != null) {
-                    preferencesManager.setContributions(Json.encodeToString(data))
-                    runOnUiThread {
-                        // Trigger widget update via broadcast
-                        val intent = android.content.Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-                        intent.setClass(this@SettingsActivity, WidgetReceiver::class.java)
-                        sendBroadcast(intent)
+                try {
+                    Log.d(TAG, "Calling GitHubFetcher.fetchContributions($username)")
+                    val data = GitHubFetcher.fetchContributions(username)
+                    
+                    if (data != null) {
+                        Log.d(TAG, "Successfully fetched ${data.size} contribution records")
+                        preferencesManager.setContributions(Json.encodeToString(data))
+                        Log.d(TAG, "Contributions saved to preferences")
                         
-                        Toast.makeText(this@SettingsActivity, "Widget updated!", Toast.LENGTH_SHORT).show()
-                        finish()
+                        runOnUiThread {
+                            // Trigger widget update via broadcast
+                            val intent = android.content.Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                            intent.setClass(this@SettingsActivity, WidgetReceiver::class.java)
+                            sendBroadcast(intent)
+                            Log.d(TAG, "Sent update broadcast to widget")
+                            
+                            Toast.makeText(this@SettingsActivity, "Widget updated!", Toast.LENGTH_SHORT).show()
+                            finish()
+                        }
+                    } else {
+                        Log.e(TAG, "GitHubFetcher returned null for username: $username")
+                        runOnUiThread {
+                            saveButton.isEnabled = true
+                            Toast.makeText(this@SettingsActivity, "Failed to fetch contributions. Check username or network.", Toast.LENGTH_LONG).show()
+                        }
                     }
-                } else {
+                } catch (e: Exception) {
+                    Log.e(TAG, "Exception in fetch coroutine", e)
                     runOnUiThread {
                         saveButton.isEnabled = true
-                        Toast.makeText(this@SettingsActivity, "Failed to fetch contributions. Check username.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@SettingsActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 }
             }
