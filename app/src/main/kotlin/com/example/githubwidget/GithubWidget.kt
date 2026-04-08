@@ -37,7 +37,7 @@ class GithubWidget : GlanceAppWidget() {
         val weeksCount = 53
         val daysInWeek = 7
         
-        val dotRadius = 7f
+        val dotRadius = 9f
         val dotSize = dotRadius * 2
         val gap = 4f
         val w = (weeksCount * (dotSize + gap) - gap).toInt()

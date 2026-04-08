@@ -7,7 +7,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="GitHub Widget"
+        android:label="gh-widget"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
